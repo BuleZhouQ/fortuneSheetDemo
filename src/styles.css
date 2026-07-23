@@ -1,3 +1,38 @@
-﻿:root{font-family:Inter,system-ui,sans-serif;color:#1f2937;background:#f4f6f8}body{margin:0}.page{box-sizing:border-box;height:100vh;display:flex;flex-direction:column;padding:20px;gap:16px}header{display:flex;justify-content:space-between;align-items:center}h1{margin:0;font-size:24px}p{margin:6px 0 0;color:#6b7280}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.toolbar .el-input{width:150px}.toolbar span{color:#667085;font-size:13px}main{height:650px;flex:none;min-height:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.fortune-host{height:100%;width:100%}
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #1f2937;
+  background: #f4f6f8;
+}
 
+html, body, #app {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
 
+/* 消除 FortuneSheet 底部白块与空白缝隙，网格/滚动条完美贴合底部状态栏 */
+.luckysheet-bottom-controll-row,
+div[class*="bottom-controll-row"],
+.fortune-bottom-controll-row {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.luckysheet-sheet-area,
+.luckysheet-grid-window,
+.luckysheet-scrollbar-y,
+.luckysheet-scrollbar-x {
+  bottom: 30px !important;
+}
+
+.luckysheet-stat-area {
+  bottom: 0 !important;
+  height: 30px !important;
+  background: #f8fafc !important;
+  border-top: 1px solid #e2e8f0 !important;
+}

@@ -5,6 +5,7 @@ import CellFeedbackPopover from "./CellFeedbackPopover.vue";
 import { useExcelAssessment, type CellAssessmentItem } from "../composables/useExcelAssessment";
 
 const editor = ref<InstanceType<typeof FortuneSheetIsland>>();
+const isSidebarOpen = ref(true);
 
 const {
   initialSheetData,
@@ -14,7 +15,6 @@ const {
   maxPossibleScore,
   assessmentResults,
   selectedCellFeedback,
-  dbSubmissionId,
   errorCount,
   correctCount,
   executeAssessment,
@@ -32,20 +32,21 @@ const onSheetOp = (payload: any) => {
   }
 };
 
-// 提交在线 Excel 任务（触发后端 API 评测与数据库落盘，阶段一标红）
+// 提交算分 (阶段一: 标红)
 const handleGradingSubmit = async () => {
   const celldata = currentSheetData.value[0]?.celldata || [];
   await executeAssessment(celldata, "张同学");
 
   const updatedSheet = generateGradedSheetData(currentSheetData.value);
   currentSheetData.value = updatedSheet;
+  isSidebarOpen.value = true;
 
   nextTick(() => {
     editor.value?.applyOp({ snapshot: updatedSheet });
   });
 };
 
-// 甄别与定位分析（阶段二标黄）
+// 转换黄色甄别高亮 (阶段二: 标黄)
 const handleYellowModeToggle = () => {
   toggleFilterYellowMode();
   const updatedSheet = generateGradedSheetData(currentSheetData.value);
@@ -73,93 +74,153 @@ const handleReset = () => {
     editor.value?.applyOp({ snapshot: currentSheetData.value });
   });
 };
+
+// 模拟快捷全屏
+const toggleFullScreen = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+};
 </script>
 
 <template>
-  <div class="assessment-workspace">
-    <!-- 顶部控标功能与后端/数据库状态栏 -->
-    <header class="workspace-header">
-      <div class="header-brand">
-        <h2 class="brand-title">在线 Excel</h2>
+  <div class="wps-office-workspace">
+    <!-- WPS 经典绿主色顶部 Header -->
+    <header class="wps-top-header">
+      <div class="wps-brand-section">
+        <div class="wps-logo-icon">
+          <svg viewBox="0 0 1024 1024" width="22" height="22" fill="currentColor">
+            <path d="M192 128h640a64 64 0 0 1 64 64v640a64 64 0 0 1-64 64H192a64 64 0 0 1-64-64V192a64 64 0 0 1 64-64z" fill="#107c41"/>
+            <path d="M280 280h464v464H280z" fill="#ffffff" opacity="0.2"/>
+            <path d="M340 380l120 280 80-160 80 160 120-280h-90l-70 170-80-160-80 160-70-170z" fill="#ffffff"/>
+          </svg>
+        </div>
+        <div class="wps-doc-meta">
+          <div class="doc-title-input" contenteditable="true" spellcheck="false">
+            财务季度考核与智能诊断表.xlsx
+          </div>
+          <div class="doc-status-badge">
+            <span class="save-status-dot"></span>已自动保存
+          </div>
+        </div>
       </div>
 
-      <div class="header-actions">
-        <!-- 评测得分指示 -->
-        <div v-if="isAssessed" class="score-pill" :class="{ 'score-pass': totalScore >= 60, 'score-fail': totalScore < 60 }">
-          <span class="score-label">总得分:</span>
-          <span class="score-num">{{ totalScore }}</span>
-          <span class="score-total">/ {{ maxPossibleScore }} 分</span>
+
+
+      <!-- 右上角快捷操作区 -->
+      <div class="wps-header-tools">
+        <!-- 评测得分状态 -->
+        <div v-if="isAssessed" class="wps-score-pill" :class="totalScore >= 60 ? 'pass' : 'fail'">
+          <span class="score-label">评测得分</span>
+          <span class="score-val">{{ totalScore }}</span>
+          <span class="score-max">/ {{ maxPossibleScore }}</span>
         </div>
 
-        <button 
-          class="btn btn-primary"
-          @click="handleGradingSubmit"
-        >
-          提交
+        <button class="wps-btn wps-btn-primary" @click="handleGradingSubmit">
+          <span class="btn-icon">⚡</span> 提交
         </button>
 
         <button 
           v-if="isAssessed"
-          class="btn btn-warning"
-          :class="{ 'active': isFilterYellowMode }"
+          class="wps-btn wps-btn-warning"
+          :class="{ active: isFilterYellowMode }"
           @click="handleYellowModeToggle"
         >
-          <span class="btn-icon">🔍</span> 
-          {{ isFilterYellowMode ? '已切换为黄色甄别模式' : '转换黄色甄别高亮' }}
+          <span class="btn-icon">🔍</span> {{ isFilterYellowMode ? '黄底甄别中' : '甄别定位(变黄)' }}
         </button>
 
-        <button class="btn btn-secondary" @click="handleReset">
-          重置
+        <button class="wps-btn wps-btn-ghost" @click="handleReset" title="重置表格">
+          ↺ 重置
+        </button>
+
+        <button class="wps-btn wps-btn-ghost" @click="toggleFullScreen" title="全屏查看">
+          ⛶ 全屏
+        </button>
+
+        <button 
+          class="wps-btn wps-btn-icon" 
+          :class="{ active: isSidebarOpen }"
+          @click="isSidebarOpen = !isSidebarOpen"
+          title="切换诊断侧边栏"
+        >
+          📋
         </button>
       </div>
     </header>
 
-    <div class="workspace-main">
-      <main class="sheet-container">
+    <!-- WPS 工作区主体 -->
+    <div class="wps-workspace-body">
+      <!-- 表格编辑区 -->
+      <main class="wps-sheet-canvas">
         <FortuneSheetIsland ref="editor" @op="onSheetOp" />
       </main>
 
-      <aside v-if="isAssessed" class="analysis-sidebar">
-        <div class="sidebar-header">
-          <div>
-            <h3>📊 单元格诊断报告</h3>
-            <div v-if="dbSubmissionId" class="db-id-text">DB记录: {{ dbSubmissionId }}</div>
+      <!-- WPS 风格右侧诊断面板 (Drawer) -->
+      <aside class="wps-sidebar-drawer" :class="{ open: isSidebarOpen && isAssessed }">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <span class="title-icon">📊</span>
+            <span>智能评测与定点诊断报告</span>
           </div>
-          <div class="stats-pills">
-            <span class="stat-tag success">正确: {{ correctCount }}</span>
-            <span class="stat-tag error">错误: {{ errorCount }}</span>
+          <button class="drawer-close" @click="isSidebarOpen = false">✕</button>
+        </div>
+
+        <!-- 分数看板卡片 -->
+        <div class="drawer-summary-card">
+          <div class="summary-score-box">
+            <div class="big-score">{{ totalScore }}</div>
+            <div class="score-sub">考核试卷满分 100 分</div>
+          </div>
+          <div class="summary-stats-grid">
+            <div class="stat-box success">
+              <span class="stat-val">{{ correctCount }}</span>
+              <span class="stat-lbl">正确项</span>
+            </div>
+            <div class="stat-box error">
+              <span class="stat-val">{{ errorCount }}</span>
+              <span class="stat-lbl">错误项</span>
+            </div>
           </div>
         </div>
 
-        <div class="error-list-section">
-          <div class="section-title">错误单元格甄别列表 (点击定位)</div>
-          <div class="error-items">
+        <!-- 错因定位分析列表 -->
+        <div class="drawer-section">
+          <div class="section-header">
+            <span>单元格甄别与定位分析</span>
+            <span class="section-tip">点击卡片定位高亮</span>
+          </div>
+
+          <div class="diagnostic-list">
             <div
               v-for="item in assessmentResults"
               :key="item.cellRef"
-              class="error-item-card"
+              class="diagnostic-card"
               :class="{
                 'is-correct': item.isCorrect,
                 'is-selected': selectedCellFeedback?.cellRef === item.cellRef,
-                'is-yellow-stage': isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef
+                'is-yellow-mode': isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef
               }"
               @click="handleSelectErrorItem(item)"
             >
-              <div class="item-left">
-                <span class="item-cell-ref">{{ item.cellRef }}</span>
-                <span class="item-title">{{ item.title }}</span>
+              <div class="card-top">
+                <span class="cell-badge">{{ item.cellRef }}</span>
+                <span class="cell-title">{{ item.title }}</span>
+                <span class="score-tag">{{ item.earnedScore }}/{{ item.scoreWeight }}分</span>
               </div>
-              <div class="item-right">
-                <span v-if="item.isCorrect" class="badge-success">✓ 正确</span>
-                <span v-else class="badge-error">
-                  {{ isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef ? '🟨 已甄别' : '🟥 待排查' }}
+              <div class="card-bottom">
+                <span v-if="item.isCorrect" class="tag-correct">✓ 答案与公式正确</span>
+                <span v-else class="tag-error">
+                  {{ isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef ? '🟨 已自动渲染为黄色高亮' : '🟥 初始标红告警' }}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="popover-container" v-if="selectedCellFeedback">
+        <!-- 选中错题的定点反馈 Popover -->
+        <div v-if="selectedCellFeedback" class="drawer-popover-wrapper">
           <CellFeedbackPopover 
             :feedback-data="selectedCellFeedback" 
             :is-yellow-mode="isFilterYellowMode"
@@ -172,282 +233,354 @@ const handleReset = () => {
 </template>
 
 <style scoped>
-.assessment-workspace {
+.wps-office-workspace {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f1f5f9;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.workspace-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  z-index: 10;
-}
-
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-badge {
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
-}
-
-.brand-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
   color: #1e293b;
 }
 
-.header-actions {
+/* WPS 经典绿色 Top Header */
+.wps-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 50px;
+  background: #107c41;
+  color: #ffffff;
+  padding: 0 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+.wps-brand-section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.db-status-pill {
+.wps-logo-icon {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+  justify-content: center;
 }
 
-.db-status-pill.connected {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+.wps-doc-meta {
+  display: flex;
+  flex-direction: column;
 }
 
-.db-status-pill.offline {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+.doc-title-input {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  outline: none;
+  border-radius: 4px;
+  padding: 1px 4px;
+  white-space: nowrap;
 }
 
-.status-dot {
-  width: 6px;
-  height: 6px;
+.doc-title-input:hover, .doc-title-input:focus {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.doc-status-badge {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.save-status-dot {
+  width: 5px;
+  height: 5px;
+  background: #4ade80;
   border-radius: 50%;
-  background: currentColor;
 }
 
-.score-pill {
+
+
+/* 右侧工具组 */
+.wps-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wps-score-pill {
   display: flex;
   align-items: baseline;
   gap: 4px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+  padding: 3px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.score-pill.score-pass {
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
-}
-
-.score-pill.score-fail {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-}
-
-.score-num {
-  font-size: 18px;
+.wps-score-pill.pass .score-val {
+  color: #4ade80;
   font-weight: 800;
+  font-size: 16px;
 }
 
-.btn {
+.wps-score-pill.fail .score-val {
+  color: #fca5a5;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.wps-score-pill .score-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.wps-score-pill .score-max {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.wps-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 4px;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.btn-primary {
-  background: #2563eb;
+.wps-btn-primary {
+  background: #ffffff;
+  color: #107c41;
+  font-weight: 700;
+}
+
+.wps-btn-primary:hover {
+  background: #f8fafc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.wps-btn-warning {
+  background: #f59e0b;
   color: #ffffff;
 }
 
-.btn-primary:hover {
-  background: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-}
-
-.btn-warning {
+.wps-btn-warning:hover {
   background: #d97706;
+}
+
+.wps-btn-warning.active {
+  background: #b45309;
+}
+
+.wps-btn-ghost {
+  background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
 }
 
-.btn-warning:hover {
-  background: #b45309;
-  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+.wps-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
-.btn-warning.active {
-  background: #ca8a04;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
+.wps-btn-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
-.btn-secondary {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+.wps-btn-icon.active {
+  background: rgba(255, 255, 255, 0.35);
 }
 
-.btn-secondary:hover {
-  background: #e2e8f0;
-}
-
-.workspace-main {
+/* 主体容器 */
+.wps-workspace-body {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
-.sheet-container {
+.wps-sheet-canvas {
   flex: 1;
   height: 100%;
   position: relative;
 }
 
-.analysis-sidebar {
+/* 右侧 WPS Drawer 诊断面板 */
+.wps-sidebar-drawer {
   width: 380px;
   background: #ffffff;
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid #cbd5e1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
   padding: 16px;
+  gap: 16px;
   overflow-y: auto;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.03);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.06);
+  z-index: 15;
 }
 
-.sidebar-header {
+.drawer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f1f5f9;
   padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.sidebar-header h3 {
-  margin: 0;
+.drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.db-id-text {
-  font-size: 10px;
+.drawer-close {
+  background: transparent;
+  border: none;
+  font-size: 16px;
   color: #64748b;
-  font-family: monospace;
+  cursor: pointer;
 }
 
-.stats-pills {
+.drawer-summary-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid #bbf7d0;
   display: flex;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.stat-tag {
+.big-score {
+  font-size: 32px;
+  font-weight: 900;
+  color: #107c41;
+  line-height: 1;
+}
+
+.score-sub {
   font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.stat-tag.success {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.stat-tag.error {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.section-title {
-  font-size: 12px;
-  font-weight: 700;
   color: #64748b;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-top: 4px;
 }
 
-.error-items {
+.summary-stats-grid {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.stat-box.success {
+  background: #ffffff;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.stat-box.error {
+  background: #ffffff;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.stat-val {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.stat-lbl {
+  font-size: 10px;
+}
+
+.drawer-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.error-item-card {
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  background: #fdf2f2;
-  border: 1px solid #fecaca;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.section-tip {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.diagnostic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostic-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
+  padding: 10px 12px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.error-item-card.is-correct {
+.diagnostic-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.diagnostic-card.is-selected {
+  border-width: 2px;
+  border-color: #ef4444;
+}
+
+.diagnostic-card.is-yellow-mode {
+  background: #fffbeb;
+  border-color: #fde047;
+}
+
+.diagnostic-card.is-yellow-mode.is-selected {
+  border-color: #ca8a04;
+}
+
+.diagnostic-card.is-correct {
   background: #f0fdf4;
   border-color: #bbf7d0;
 }
 
-.error-item-card.is-selected {
-  border-width: 2px;
-  border-color: #ef4444;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
-}
-
-.error-item-card.is-yellow-stage {
-  background: #fefce8;
-  border-color: #fef08a;
-}
-
-.error-item-card.is-yellow-stage.is-selected {
-  border-color: #eab308;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.2);
-}
-
-.item-left {
+.card-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  margin-bottom: 6px;
 }
 
-.item-cell-ref {
-  background: #ef4444;
+.cell-badge {
+  background: #107c41;
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
@@ -455,37 +588,46 @@ const handleReset = () => {
   border-radius: 4px;
 }
 
-.is-yellow-stage .item-cell-ref {
-  background: #eab308;
+.is-yellow-mode .cell-badge {
+  background: #ca8a04;
 }
 
-.is-correct .item-cell-ref {
-  background: #22c55e;
+.is-correct .cell-badge {
+  background: #16a34a;
 }
 
-.item-title {
+.cell-title {
   font-size: 13px;
   font-weight: 600;
-  color: #334155;
+  color: #1e293b;
+  flex: 1;
 }
 
-.badge-success {
+.score-tag {
   font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.card-bottom {
+  font-size: 11px;
+}
+
+.tag-correct {
   color: #16a34a;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.badge-error {
-  font-size: 11px;
+.tag-error {
   color: #dc2626;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.is-yellow-stage .badge-error {
+.is-yellow-mode .tag-error {
   color: #ca8a04;
 }
 
-.popover-container {
+.drawer-popover-wrapper {
   margin-top: 8px;
 }
 </style>

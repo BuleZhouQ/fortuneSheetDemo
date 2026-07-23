@@ -6,8 +6,8 @@ import "@fortune-sheet/react/dist/index.css";
 const data = [{
   name: "在线 Excel 评测",
   status: 1,
-  row: 20,
-  column: 10,
+  row: 84,
+  column: 26,
   config: {
     colwidth: { 0: 100, 1: 180, 2: 180, 3: 220 }
   },
@@ -61,23 +61,122 @@ const data = [{
 
 function SheetFrame() {
   const workbook = useRef<WorkbookInstance>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [sheets, setSheets] = useState(data);
+
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.data?.type !== "fortune-remote-op") return;
-      if (event.data.snapshot) { console.log("remote snapshot", event.data.snapshot[0]?.data?.[12]?.[7]?.v); setSheets(event.data.snapshot); }
-      else workbook.current?.applyOp(event.data.op);
+      if (event.data.snapshot) {
+        setSheets(event.data.snapshot);
+      } else {
+        workbook.current?.applyOp(event.data.op);
+      }
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, []);
-  return <Workbook ref={workbook} data={sheets} onOp={(op) => {
-    window.setTimeout(() => parent.postMessage({ type: "fortune-op", op, snapshot: workbook.current?.getAllSheets() }, location.origin), 0);
-  }} />;
+
+  // WPS 风格: 智能监听到滚轮触底自动追加行 & 向右超界追加列
+  useEffect(() => {
+    const rootEl = containerRef.current;
+    if (!rootEl) return;
+
+    let isExpanding = false;
+
+    const handleWheel = (e: WheelEvent) => {
+      // 仅当用户向下滚动滚轮时触发判定
+      if (e.deltaY <= 0 || isExpanding) return;
+
+      const scrollable = rootEl.querySelector(".luckysheet-scrollbar-y") || rootEl;
+      const { scrollTop, scrollHeight, clientHeight } = scrollable as HTMLElement;
+
+      // 如果滚动到了距离底部 20px 以内，自动向追加 20 行
+      if (scrollHeight > 0 && scrollTop + clientHeight >= scrollHeight - 20) {
+        isExpanding = true;
+        setSheets((prevSheets) => {
+          const cloned = JSON.parse(JSON.stringify(prevSheets));
+          if (cloned[0]) {
+            cloned[0].row = (cloned[0].row || 84) + 20;
+          }
+          return cloned;
+        });
+
+        setTimeout(() => {
+          isExpanding = false;
+        }, 300);
+      }
+    };
+
+    rootEl.addEventListener("wheel", handleWheel, { passive: true });
+    return () => rootEl.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+      <Workbook
+        ref={workbook}
+        data={sheets}
+        showtoolbar={true}
+        showinfobar={false}
+        showsheetbar={true}
+        showstatisticBar={false}
+        allowEdit={true}
+        onOp={(op) => {
+          window.setTimeout(() => {
+            parent.postMessage(
+              { type: "fortune-op", op, snapshot: workbook.current?.getAllSheets() },
+              location.origin
+            );
+          }, 0);
+        }}
+      />
+    </div>
+  );
 }
 
 document.documentElement.style.height = "100%";
 document.body.style.cssText = "height:100%;margin:0;overflow:hidden";
 document.getElementById("sheet-root")!.style.height = "100%";
-createRoot(document.getElementById("sheet-root")!).render(<SheetFrame />);
 
+// 工业级精简 CSS：消除底部 22px 的 fortune-stat-area 占位容器，使真正的底栏无缝沉底
+const hideStyle = document.createElement("style");
+hideStyle.innerHTML = `
+  html, body, #sheet-root {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* 干掉紧跟在 luckysheet-sheet-area 下方占位 22px 的 fortune-stat-area 容器 */
+  .fortune-stat-area,
+  div.fortune-stat-area {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  /* 消除旧式追加行占位控件，防止留白 */
+  .luckysheet-bottom-controll-row,
+  div[class*="bottom-controll-row"],
+  .fortune-bottom-controll-row,
+  #luckysheet-bottom-add-row,
+  #luckysheet-bottom-add-row-input,
+  #luckysheet-bottom-return-top {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+`;
+document.head.appendChild(hideStyle);
+
+createRoot(document.getElementById("sheet-root")!).render(<SheetFrame />);
