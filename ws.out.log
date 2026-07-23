@@ -1,0 +1,5 @@
+
+> ws
+> node server/ws-server.mjs
+
+FortuneSheet WebSocket server: ws://localhost:8081/ws

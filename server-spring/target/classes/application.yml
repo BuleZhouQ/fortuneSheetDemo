@@ -1,0 +1,15 @@
+﻿server:
+  port: 8081
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27018/fortune_sheet_collab
+    redis:
+      host: localhost
+      port: 6379
+      database: 8
+  jackson:
+    default-property-inclusion: non_null
+collab:
+  jwt-secret: fortune-sheet-demo-secret-key-change-me-2026
+  token-hours: 12

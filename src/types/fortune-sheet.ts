@@ -1,0 +1,1 @@
+﻿export type CollabMessage = { type: "join"; room: string; user: string } | { type: "op"; room: string; user: string; op: unknown } | { type: "snapshot"; room: string; data: unknown[]; users: string[] } | { type: "remote-op"; user: string; op: unknown } | { type: "presence"; users: string[] };
