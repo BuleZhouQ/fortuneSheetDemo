@@ -28,7 +28,10 @@ export interface CellAssessmentItem {
   status: 'UNCHECKED' | 'RED_ERROR' | 'YELLOW_ANALYZED' | 'CORRECT';
 }
 
-const BACKEND_API_URL = "http://localhost:3001/api/assessment";
+const BACKEND_API_URLS = [
+  "http://localhost:8081/api/assessment",
+  "http://localhost:3001/api/assessment"
+];
 
 export function useExcelAssessment() {
   const assessmentRules: StandardCellRule[] = [
@@ -223,31 +226,37 @@ export function useExcelAssessment() {
     return { totalScore: earned, results };
   };
 
-  // 请求后端 REST API 进行评测与数据库存储
+  // 请求后端 REST API 进行评测与数据库存储 (适配 Spring Boot & Node)
   const executeAssessment = async (currentCelldata: any[], studentName: string = "张同学") => {
-    try {
-      const response = await fetch(`${BACKEND_API_URL}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentName, celldata: currentCelldata })
-      });
+    let success = false;
 
-      if (response.ok) {
-        const resData = await response.json();
-        if (resData.code === 200) {
-          totalScore.value = resData.data.totalScore;
-          assessmentResults.value = resData.data.results;
-          dbSubmissionId.value = resData.data.submissionId;
-          isBackendConnected.value = true;
-          console.log("[Backend DB Success] Record saved:", resData.data.submissionId);
-        } else {
-          throw new Error(resData.message);
+    for (const url of BACKEND_API_URLS) {
+      try {
+        const response = await fetch(`${url}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentName, celldata: currentCelldata })
+        });
+
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.code === 200) {
+            totalScore.value = resData.data.totalScore;
+            assessmentResults.value = resData.data.results;
+            dbSubmissionId.value = resData.data.submissionId;
+            isBackendConnected.value = true;
+            success = true;
+            console.log(`[Spring Boot DB Success] Connected to ${url}, Record saved:`, resData.data.submissionId);
+            break;
+          }
         }
-      } else {
-        throw new Error("Backend HTTP Error");
+      } catch (err) {
+        // 继续尝试下一个后端地址
       }
-    } catch (err) {
-      console.warn("[Backend Offline] Falling back to local engine:", err);
+    }
+
+    if (!success) {
+      console.warn("[Spring Boot Backend Offline] Falling back to local engine");
       isBackendConnected.value = false;
       const { totalScore: earned, results } = fallbackLocalAssessment(currentCelldata);
       totalScore.value = earned;

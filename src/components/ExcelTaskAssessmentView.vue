@@ -14,7 +14,6 @@ const {
   maxPossibleScore,
   assessmentResults,
   selectedCellFeedback,
-  isBackendConnected,
   dbSubmissionId,
   errorCount,
   correctCount,
@@ -81,17 +80,10 @@ const handleReset = () => {
     <!-- 顶部控标功能与后端/数据库状态栏 -->
     <header class="workspace-header">
       <div class="header-brand">
-        <div class="brand-badge">▲6.生产级控标展示</div>
-        <h2 class="brand-title">在线 Excel 任务逐单元格精准评价与数据库持久化诊断系统</h2>
+        <h2 class="brand-title">在线 Excel</h2>
       </div>
 
       <div class="header-actions">
-        <!-- 数据库状态指示标 -->
-        <div class="db-status-pill" :class="isBackendConnected ? 'connected' : 'offline'">
-          <span class="status-dot"></span>
-          <span>{{ isBackendConnected ? 'DB数据库已连通' : '本地引擎' }}</span>
-        </div>
-
         <!-- 评测得分指示 -->
         <div v-if="isAssessed" class="score-pill" :class="{ 'score-pass': totalScore >= 60, 'score-fail': totalScore < 60 }">
           <span class="score-label">总得分:</span>
@@ -103,7 +95,7 @@ const handleReset = () => {
           class="btn btn-primary"
           @click="handleGradingSubmit"
         >
-          <span class="btn-icon">⚡</span> 提交任务 (服务端评测与数据库落盘)
+          提交
         </button>
 
         <button 
@@ -117,7 +109,7 @@ const handleReset = () => {
         </button>
 
         <button class="btn btn-secondary" @click="handleReset">
-          重置任务
+          重置
         </button>
       </div>
     </header>

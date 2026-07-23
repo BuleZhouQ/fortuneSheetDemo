@@ -1,5 +1,17 @@
-﻿package com.demo.collab.workbook
+package com.demo.collab.workbook
+
 import org.springframework.data.mongodb.repository.MongoRepository
-interface WorkbookRepository:MongoRepository<WorkbookDocument,String>{fun findByRoomId(roomId:String):WorkbookDocument?}
-interface MemberRepository:MongoRepository<WorkbookMember,String>{fun findByRoomIdAndUsername(roomId:String,username:String):WorkbookMember?}
-interface OperationRepository:MongoRepository<OperationLog,String>
+import org.springframework.stereotype.Repository
+
+@Repository
+interface WorkbookRepository : MongoRepository<WorkbookDocument, String> {
+    fun findByRoomId(roomId: String): WorkbookDocument?
+}
+
+@Repository
+interface MemberRepository : MongoRepository<WorkbookMember, String> {
+    fun findByRoomIdAndUsername(roomId: String, username: String): WorkbookMember?
+}
+
+@Repository
+interface OperationRepository : MongoRepository<OperationLog, String>
