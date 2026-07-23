@@ -82,8 +82,8 @@ export function useExcelAssessment() {
       name: "财务季度考核表",
       status: 1,
       order: 0,
-      row: 20,
-      column: 10,
+      row: 84,
+      column: 26,
       config: {
         colwidth: { 0: 100, 1: 180, 2: 180, 3: 220 }
       },
@@ -115,25 +115,39 @@ export function useExcelAssessment() {
 
         { r: 6, c: 0, v: { v: "T-01", bl: 1 } },
         { r: 6, c: 1, v: { v: "季度销售总额 (SUM)", bl: 1 } },
-        { r: 6, c: 2, v: { f: "=SUM(C3:C5)", v: 115000, m: "115000" } },
-        { r: 6, c: 3, v: { v: "请使用 SUM 函数计算" } },
+        { r: 6, c: 2, v: { v: "", m: "" } },
+        { r: 6, c: 3, v: { v: "请使用 SUM 函数计算区间 C3:C6" } },
 
         { r: 7, c: 0, v: { v: "T-02", bl: 1 } },
         { r: 7, c: 1, v: { v: "月度平均销售额 (AVERAGE)", bl: 1 } },
-        { r: 7, c: 2, v: { v: 39500, m: "39500" } },
-        { r: 7, c: 3, v: { v: "请使用 AVERAGE 函数计算" } },
+        { r: 7, c: 2, v: { v: "", m: "" } },
+        { r: 7, c: 3, v: { v: "请使用 AVERAGE 函数计算区间 C3:C6" } },
 
         { r: 8, c: 0, v: { v: "T-03", bl: 1 } },
         { r: 8, c: 1, v: { v: "应缴增值税率 (13%)", bl: 1 } },
-        { r: 8, c: 2, v: { f: "=C7*0.13", v: 14950, m: "14950" } },
-        { r: 8, c: 3, v: { v: "基于总额乘以 0.13" } },
+        { r: 8, c: 2, v: { v: "", m: "" } },
+        { r: 8, c: 3, v: { v: "基于总额 C7 乘以 0.13" } },
 
         { r: 9, c: 0, v: { v: "T-04", bl: 1 } },
         { r: 9, c: 1, v: { v: "税后净利润占比分析", bl: 1 } },
-        { r: 9, c: 2, v: { f: '=IF(C7>100000,"达标","未达标")', v: "达标", m: "达标" } },
-        { r: 9, c: 3, v: { v: "使用 IF 函数判定" } }
+        { r: 9, c: 2, v: { v: "", m: "" } },
+        { r: 9, c: 3, v: { v: "使用 IF 函数判定 C7 > 100000" } }
       ]
     }
+  ];
+
+  const sampleErrorCelldata = [
+    { r: 6, c: 2, v: { f: "=SUM(C3:C5)", v: 115000, m: "115000" } }, // 求和范围偏小错误
+    { r: 7, c: 2, v: { v: 39500, m: "39500" } },                   // 未输入公式(硬编码数字)错误
+    { r: 8, c: 2, v: { f: "=C7*0.13", v: 14950, m: "14950" } },       // 基于错误C7计算
+    { r: 9, c: 2, v: { f: '=IF(C7>100000,"未达标","达标")', v: "未达标", m: "未达标" } } // 逻辑颠倒错误
+  ];
+
+  const sampleCorrectCelldata = [
+    { r: 6, c: 2, v: { f: "=SUM(C3:C6)", v: 158000, m: "158000" } },
+    { r: 7, c: 2, v: { f: "=AVERAGE(C3:C6)", v: 39500, m: "39500" } },
+    { r: 8, c: 2, v: { f: "=C7*0.13", v: 20540, m: "20540" } },
+    { r: 9, c: 2, v: { f: '=IF(C7>100000,"达标","未达标")', v: "达标", m: "达标" } }
   ];
 
   const isAssessed = ref(false);
@@ -278,32 +292,49 @@ export function useExcelAssessment() {
     if (!isAssessed.value || !baseSheet?.[0]) return baseSheet;
 
     const cloned = JSON.parse(JSON.stringify(baseSheet));
-    const celldata: any[] = cloned[0].celldata || [];
+    const sheet = cloned[0];
+    sheet.celldata = sheet.celldata || [];
 
-    const resultMap = new Map<string, CellAssessmentItem>();
     assessmentResults.value.forEach((res) => {
-      resultMap.set(`${res.row}_${res.col}`, res);
-    });
+      if (!res.isCorrect) {
+        let bg = "#FFD2D2";
+        let fc = "#CF1322";
 
-    celldata.forEach((cell) => {
-      const key = `${cell.r}_${cell.c}`;
-      const res = resultMap.get(key);
-      if (res && !res.isCorrect) {
         if (isFilterYellowMode.value || (selectedCellFeedback.value && selectedCellFeedback.value.cellRef === res.cellRef)) {
-          cell.v = cell.v || {};
-          cell.v.bg = "#FFF1B8";
-          cell.v.fc = "#D48806";
+          bg = "#FFF1B8";
+          fc = "#D48806";
           res.status = 'YELLOW_ANALYZED';
         } else {
-          cell.v = cell.v || {};
-          cell.v.bg = "#FFD2D2";
-          cell.v.fc = "#CF1322";
           res.status = 'RED_ERROR';
+        }
+
+        let cellItem = sheet.celldata.find((c: any) => c.r === res.row && c.c === res.col);
+        if (!cellItem) {
+          cellItem = { r: res.row, c: res.col, v: { v: res.studentValue, f: res.studentFormula } };
+          sheet.celldata.push(cellItem);
+        }
+        cellItem.v = cellItem.v || {};
+        cellItem.v.bg = bg;
+        cellItem.v.fc = fc;
+
+        if (Array.isArray(sheet.data) && sheet.data[res.row]) {
+          sheet.data[res.row][res.col] = sheet.data[res.row][res.col] || {};
+          sheet.data[res.row][res.col].bg = bg;
+          sheet.data[res.row][res.col].fc = fc;
+        }
+      } else {
+        let cellItem = sheet.celldata.find((c: any) => c.r === res.row && c.c === res.col);
+        if (cellItem && cellItem.v) {
+          delete cellItem.v.bg;
+          delete cellItem.v.fc;
+        }
+        if (Array.isArray(sheet.data) && sheet.data[res.row] && sheet.data[res.row][res.col]) {
+          delete sheet.data[res.row][res.col].bg;
+          delete sheet.data[res.row][res.col].fc;
         }
       }
     });
 
-    cloned[0].celldata = celldata;
     return cloned;
   };
 
@@ -344,6 +375,8 @@ export function useExcelAssessment() {
     generateGradedSheetData,
     selectErrorCellForAnalysis,
     toggleFilterYellowMode,
-    resetAssessment
+    resetAssessment,
+    sampleErrorCelldata,
+    sampleCorrectCelldata
   };
 }

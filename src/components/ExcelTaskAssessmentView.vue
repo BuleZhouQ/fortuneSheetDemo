@@ -5,7 +5,7 @@ import CellFeedbackPopover from "./CellFeedbackPopover.vue";
 import { useExcelAssessment, type CellAssessmentItem } from "../composables/useExcelAssessment";
 
 const editor = ref<InstanceType<typeof FortuneSheetIsland>>();
-const isSidebarOpen = ref(true);
+const isSidebarOpen = ref(false);
 
 const {
   initialSheetData,
@@ -21,7 +21,9 @@ const {
   generateGradedSheetData,
   selectErrorCellForAnalysis,
   toggleFilterYellowMode,
-  resetAssessment
+  resetAssessment,
+  sampleErrorCelldata,
+  sampleCorrectCelldata
 } = useExcelAssessment();
 
 const currentSheetData = ref<any[]>(JSON.parse(JSON.stringify(initialSheetData)));
@@ -30,6 +32,45 @@ const onSheetOp = (payload: any) => {
   if (payload?.snapshot) {
     currentSheetData.value = payload.snapshot;
   }
+};
+
+// 填入自定义答题数据辅助逻辑
+const injectCelldata = (items: any[]) => {
+  const cloned = JSON.parse(JSON.stringify(currentSheetData.value));
+  const sheet = cloned[0];
+  if (!sheet) return;
+
+  sheet.celldata = sheet.celldata || [];
+
+  items.forEach((newItem) => {
+    const idx = sheet.celldata.findIndex((c: any) => c.r === newItem.r && c.c === newItem.c);
+    if (idx >= 0) {
+      sheet.celldata[idx] = JSON.parse(JSON.stringify(newItem));
+    } else {
+      sheet.celldata.push(JSON.parse(JSON.stringify(newItem)));
+    }
+
+    if (Array.isArray(sheet.data) && sheet.data[newItem.r]) {
+      sheet.data[newItem.r][newItem.c] = JSON.parse(JSON.stringify(newItem.v));
+    }
+  });
+
+  currentSheetData.value = cloned;
+  nextTick(() => {
+    editor.value?.applyOp({ snapshot: cloned });
+  });
+};
+
+// 一键带入示例错题（演示用）
+const handleLoadSampleError = () => {
+  resetAssessment();
+  injectCelldata(sampleErrorCelldata);
+};
+
+// 一键带入满分答案（演示用）
+const handleLoadSampleCorrect = () => {
+  resetAssessment();
+  injectCelldata(sampleCorrectCelldata);
 };
 
 // 提交算分 (阶段一: 标红)
@@ -69,6 +110,7 @@ const handleSelectErrorItem = (item: CellAssessmentItem) => {
 
 const handleReset = () => {
   resetAssessment();
+  isSidebarOpen.value = false;
   currentSheetData.value = JSON.parse(JSON.stringify(initialSheetData));
   nextTick(() => {
     editor.value?.applyOp({ snapshot: currentSheetData.value });
@@ -118,20 +160,18 @@ const toggleFullScreen = () => {
           <span class="score-max">/ {{ maxPossibleScore }}</span>
         </div>
 
-        <button class="wps-btn wps-btn-primary" @click="handleGradingSubmit">
-          <span class="btn-icon">⚡</span> 提交
+        <!-- 快捷填入示例（方便现场演示或自主做题测试） -->
+        <button class="wps-btn wps-btn-ghost" @click="handleLoadSampleError" title="带入示例错题数据">
+          ⚡ 填入错题
+        </button>
+        <button class="wps-btn wps-btn-ghost" @click="handleLoadSampleCorrect" title="带入满分正确答案">
+          💯 填入满分
         </button>
 
-        <button 
-          v-if="isAssessed"
-          class="wps-btn wps-btn-warning"
-          :class="{ active: isFilterYellowMode }"
-          @click="handleYellowModeToggle"
-        >
-          <span class="btn-icon">🔍</span> {{ isFilterYellowMode ? '黄底甄别中' : '甄别定位(变黄)' }}
+        <button class="wps-btn wps-btn-primary" @click="handleGradingSubmit"> 提交
         </button>
 
-        <button class="wps-btn wps-btn-ghost" @click="handleReset" title="重置表格">
+        <button class="wps-btn wps-btn-ghost" @click="handleReset" title="清空答题区重置">
           ↺ 重置
         </button>
 
@@ -158,7 +198,7 @@ const toggleFullScreen = () => {
       </main>
 
       <!-- WPS 风格右侧诊断面板 (Drawer) -->
-      <aside class="wps-sidebar-drawer" :class="{ open: isSidebarOpen && isAssessed }">
+      <aside class="wps-sidebar-drawer" :class="{ open: isSidebarOpen }">
         <div class="drawer-header">
           <div class="drawer-title">
             <span class="title-icon">📊</span>
@@ -167,8 +207,16 @@ const toggleFullScreen = () => {
           <button class="drawer-close" @click="isSidebarOpen = false">✕</button>
         </div>
 
-        <!-- 分数看板卡片 -->
-        <div class="drawer-summary-card">
+        <!-- 未提交评测时的提示 -->
+        <div v-if="!isAssessed" class="drawer-empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-title">暂无评测诊断报告</div>
+          <div class="empty-desc">请先在顶部工具栏点击 <strong>【提交】</strong> 按钮，系统将自动进行精准算分与错因诊断。</div>
+        </div>
+
+        <template v-else>
+          <!-- 分数看板卡片 -->
+          <div class="drawer-summary-card">
           <div class="summary-score-box">
             <div class="big-score">{{ totalScore }}</div>
             <div class="score-sub">考核试卷满分 100 分</div>
@@ -227,6 +275,7 @@ const toggleFullScreen = () => {
             @close="selectedCellFeedback = null"
           />
         </div>
+        </template>
       </aside>
     </div>
   </div>
@@ -415,8 +464,12 @@ const toggleFullScreen = () => {
   position: relative;
 }
 
-/* 右侧 WPS Drawer 诊断面板 */
+/* 右侧 WPS Drawer 诊断面板 (GPU 硬件加速，零重排卡顿) */
 .wps-sidebar-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 380px;
   background: #ffffff;
   border-left: 1px solid #cbd5e1;
@@ -425,8 +478,15 @@ const toggleFullScreen = () => {
   padding: 16px;
   gap: 16px;
   overflow-y: auto;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.06);
-  z-index: 15;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.wps-sidebar-drawer.open {
+  transform: translateX(0);
 }
 
 .drawer-header {
@@ -435,6 +495,38 @@ const toggleFullScreen = () => {
   align-items: center;
   padding-bottom: 10px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.drawer-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.drawer-empty-state .empty-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.drawer-empty-state .empty-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.drawer-empty-state .empty-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #64748b;
 }
 
 .drawer-title {

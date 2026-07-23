@@ -13,7 +13,7 @@ class WorkbookService(
     private val operations: OperationRepository,
     private val redis: StringRedisTemplate
 ) {
-    private val defaultSnapshot = """[{"name":"在线 Excel 任务评测表","status":1,"row":84,"column":60,"config":{},"celldata":[{"r":0,"c":0,"v":{"v":"题号","m":"题号"}},{"r":0,"c":1,"v":{"v":"题目","m":"题目"}},{"r":0,"c":2,"v":{"v":"答案","m":"答案"}}]}]"""
+    private val defaultSnapshot = """[{"name":"在线 Excel 评测","status":1,"row":84,"column":60,"config":{},"celldata":[{"r":0,"c":0,"v":{"v":"题号","m":"题号"}},{"r":0,"c":1,"v":{"v":"题目","m":"题目"}},{"r":0,"c":2,"v":{"v":"答案","m":"答案"}}]}]"""
 
     fun load(room: String, mapper: ObjectMapper): WorkbookDocument {
         return workbooks.findByRoomId(room) ?: workbooks.save(

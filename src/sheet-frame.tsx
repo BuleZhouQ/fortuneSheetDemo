@@ -39,23 +39,23 @@ const data = [{
 
     { r: 6, c: 0, v: { v: "T-01", bl: 1 } },
     { r: 6, c: 1, v: { v: "季度销售总额 (SUM)", bl: 1 } },
-    { r: 6, c: 2, v: { f: "=SUM(C3:C5)", v: 115000, m: "115000" } },
-    { r: 6, c: 3, v: { v: "请使用 SUM 函数计算" } },
+    { r: 6, c: 2, v: { v: "", m: "" } },
+    { r: 6, c: 3, v: { v: "请使用 SUM 函数计算区间 C3:C6" } },
 
     { r: 7, c: 0, v: { v: "T-02", bl: 1 } },
     { r: 7, c: 1, v: { v: "月度平均销售额 (AVERAGE)", bl: 1 } },
-    { r: 7, c: 2, v: { v: 39500, m: "39500" } },
-    { r: 7, c: 3, v: { v: "请使用 AVERAGE 函数计算" } },
+    { r: 7, c: 2, v: { v: "", m: "" } },
+    { r: 7, c: 3, v: { v: "请使用 AVERAGE 函数计算区间 C3:C6" } },
 
     { r: 8, c: 0, v: { v: "T-03", bl: 1 } },
     { r: 8, c: 1, v: { v: "应缴增值税率 (13%)", bl: 1 } },
-    { r: 8, c: 2, v: { f: "=C7*0.13", v: 14950, m: "14950" } },
-    { r: 8, c: 3, v: { v: "基于总额乘以 0.13" } },
+    { r: 8, c: 2, v: { v: "", m: "" } },
+    { r: 8, c: 3, v: { v: "基于总额 C7 乘以 0.13" } },
 
     { r: 9, c: 0, v: { v: "T-04", bl: 1 } },
     { r: 9, c: 1, v: { v: "税后净利润占比分析", bl: 1 } },
-    { r: 9, c: 2, v: { f: '=IF(C7>100000,"达标","未达标")', v: "达标", m: "达标" } },
-    { r: 9, c: 3, v: { v: "使用 IF 函数判定" } }
+    { r: 9, c: 2, v: { v: "", m: "" } },
+    { r: 9, c: 3, v: { v: "使用 IF 函数判定 C7 > 100000" } }
   ],
 }];
 
@@ -63,13 +63,23 @@ function SheetFrame() {
   const workbook = useRef<WorkbookInstance>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [sheets, setSheets] = useState(data);
+  const [sheetKey, setSheetKey] = useState(0);
 
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.data?.type !== "fortune-remote-op") return;
       if (event.data.snapshot) {
-        setSheets(event.data.snapshot);
-      } else {
+        const snapshot = JSON.parse(JSON.stringify(event.data.snapshot));
+        if (snapshot[0]) {
+          snapshot[0].row = Math.max(snapshot[0].row || 0, 84);
+          snapshot[0].column = Math.max(snapshot[0].column || 0, 26);
+        }
+        setSheets(snapshot);
+        setSheetKey((prev) => prev + 1);
+        setTimeout(() => {
+          window.dispatchEvent(new Event("resize"));
+        }, 50);
+      } else if (event.data.op) {
         workbook.current?.applyOp(event.data.op);
       }
     };
@@ -115,6 +125,7 @@ function SheetFrame() {
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
       <Workbook
+        key={sheetKey}
         ref={workbook}
         data={sheets}
         showtoolbar={true}
