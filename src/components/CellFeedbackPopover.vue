@@ -1,241 +1,164 @@
 <script setup lang="ts">
 import type { CellAssessmentItem } from "../composables/useExcelAssessment";
 
-const props = defineProps<{
+defineProps<{
   feedbackData: CellAssessmentItem | null;
   isYellowMode?: boolean;
 }>();
-
-const emit = defineEmits<{
-  close: [];
-}>();
-
-const getErrorTypeName = (type?: CellAssessmentItem['errorType']) => {
-  switch (type) {
-    case "MISSING_FORMULA":
-      return "缺失必要函数公式";
-    case "FORMULA_MISMATCH":
-      return "函数公式语法/区间范围错误";
-    case "VALUE_MISMATCH":
-      return "计算结果数值/文本不匹配";
-    default:
-      return "答题异常";
-  }
-};
 </script>
 
 <template>
-  <div 
-    v-if="feedbackData" 
-    class="feedback-detail-panel" 
-    :class="{ 
-      'is-correct': feedbackData.isCorrect,
-      'is-yellow': !feedbackData.isCorrect && (isYellowMode || feedbackData.status === 'YELLOW_ANALYZED')
-    }"
-    @click.stop
-  >
-    <div class="feedback-body">
-      <!-- 仅错题展示错误类型警告带 -->
-      <div v-if="!feedbackData.isCorrect" class="status-banner error-banner">
-        <span class="status-icon">⚠️</span>
-        <span class="status-text">{{ getErrorTypeName(feedbackData.errorType) }}</span>
-      </div>
-
-      <!-- 对比分析表格 -->
-      <div class="comparison-grid">
-        <div class="grid-column student" :class="{ 'is-correct': feedbackData.isCorrect }">
-          <div class="column-header">学生提交</div>
-          <div class="field-item">
-            <span class="field-label">计算数值:</span>
-            <span class="field-value" :class="feedbackData.isCorrect ? 'correct-highlight' : 'error-highlight'">
-              {{ feedbackData.studentValue !== '' ? feedbackData.studentValue : '(空)' }}
-            </span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">输入公式:</span>
-            <code class="formula-code" :class="feedbackData.isCorrect ? 'correct-code' : 'error-code'">
-              {{ feedbackData.studentFormula || '无公式 (硬编码)' }}
+  <div v-if="feedbackData" class="feedback-detail-section" @click.stop>
+    <!-- 极简对比表格 -->
+    <table class="compact-diff-table">
+      <thead>
+        <tr>
+          <th style="width: 22%;">对比项</th>
+          <th style="width: 39%;">学生提交</th>
+          <th style="width: 39%;">标准答案</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-label">计算数值</td>
+          <td class="col-val" :class="feedbackData.isCorrect ? 'val-correct' : 'val-error'">
+            {{ feedbackData.studentValue !== '' ? feedbackData.studentValue : '(空)' }}
+          </td>
+          <td class="col-val val-standard">{{ feedbackData.standardValue }}</td>
+        </tr>
+        <tr>
+          <td class="col-label">函数公式</td>
+          <td class="col-val">
+            <code class="formula-tag" :class="feedbackData.isCorrect ? 'code-correct' : 'code-error'">
+              {{ feedbackData.studentFormula || '无公式' }}
             </code>
-          </div>
-        </div>
+          </td>
+          <td class="col-val">
+            <code class="formula-tag code-standard">
+              {{ feedbackData.standardFormula || '无公式要求' }}
+            </code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-        <div class="grid-column standard">
-          <div class="column-header">标准答案</div>
-          <div class="field-item">
-            <span class="field-label">标准数值:</span>
-            <span class="field-value standard-highlight">{{ feedbackData.standardValue }}</span>
-          </div>
-          <div class="field-item">
-            <span class="field-label">标准公式:</span>
-            <code class="formula-code standard-code">{{ feedbackData.standardFormula || '无公式要求' }}</code>
-          </div>
-        </div>
-      </div>
-
-      <!-- 仅错题展示定点错误分析提示 -->
-      <div v-if="!feedbackData.isCorrect" class="analysis-box error-box">
-        <div class="analysis-title">🔍 定点诊断与错误原因提示：</div>
-        <p class="analysis-text">{{ feedbackData.errorAnalysisPrompt }}</p>
-      </div>
+    <!-- 错因解析 Callout -->
+    <div v-if="!feedbackData.isCorrect" class="analysis-callout">
+      <span class="callout-label">错因解析</span>
+      <p class="callout-text">{{ feedbackData.errorAnalysisPrompt }}</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.feedback-detail-panel {
-  background: #ffffff;
-  border-radius: 6px;
-  border: 1px solid #ffccc7;
-  overflow: hidden;
-  margin-top: 8px;
-  transition: all 0.2s ease;
+.feedback-detail-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
 }
 
-.feedback-detail-panel.is-correct {
-  border-color: #b7eb8f;
-  background: #fafcf7;
+/* 优雅简洁的 3 列对比表格 */
+.compact-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
 }
 
-.feedback-detail-panel.is-yellow {
-  border-color: #ffe58f;
-  background: #fffdf5;
-}
-
-.feedback-body {
-  padding: 8px 10px;
-}
-
-.status-banner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
+.compact-diff-table th {
+  padding: 5px 6px;
   font-size: 11px;
-  margin-bottom: 6px;
-}
-
-.status-banner.error-banner {
-  background: #fff2f0;
-  color: #cf1322;
-  border: 1px solid #ffa39e;
-}
-
-.is-yellow .status-banner.error-banner {
-  background: #fffbe6;
-  color: #d48806;
-  border-color: #ffe58f;
-}
-
-.status-text {
   font-weight: 600;
+  color: #64748b;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
-.comparison-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.grid-column {
-  background: #fafafa;
-  border-radius: 4px;
+.compact-diff-table td {
   padding: 6px;
-  border: 1px solid #f0f0f0;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.grid-column.is-correct {
-  background: #f6ffed;
-  border-color: #d9f7be;
+.compact-diff-table tr:last-child td {
+  border-bottom: none;
 }
 
-.column-header {
+.col-label {
   font-size: 11px;
-  font-weight: 700;
-  color: #595959;
-  margin-bottom: 4px;
-  border-bottom: 1px dashed #d9d9d9;
-  padding-bottom: 2px;
+  color: #64748b;
+  font-weight: 500;
 }
 
-.field-item {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-bottom: 4px;
-}
-
-.field-label {
-  font-size: 10px;
-  color: #8c8c8c;
-}
-
-.field-value {
+.col-val {
   font-size: 12px;
   font-weight: 600;
-  color: #262626;
+  color: #1e293b;
+  word-break: break-all;
 }
 
-.error-highlight {
-  color: #cf1322;
+.val-error {
+  color: #dc2626;
 }
 
-.correct-highlight {
-  color: #278211;
+.val-correct {
+  color: #16a34a;
 }
 
-.standard-highlight {
-  color: #278211;
+.val-standard {
+  color: #16a34a;
 }
 
-.formula-code {
-  font-family: monospace;
+.formula-tag {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;
   word-break: break-all;
 }
 
-.error-code {
-  background: #fff1f0;
-  color: #a8071a;
-  border: 1px solid #ffa39e;
+.code-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
-.correct-code {
-  background: #f6ffed;
-  color: #278211;
-  border: 1px solid #b7eb8f;
+.code-correct {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
-.standard-code {
-  background: #f6ffed;
-  color: #278211;
-  border: 1px solid #b7eb8f;
+.code-standard {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
 }
 
-.analysis-box {
-  padding: 6px;
-  border-radius: 4px;
-  margin-top: 6px;
-}
-
-.analysis-box.error-box {
+/* 错因解析 Callout */
+.analysis-callout {
+  margin-top: 10px;
+  padding: 8px 10px;
   background: #fffbe6;
-  border-left: 3px solid #faad14;
+  border-left: 3px solid #d97706;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.error-box .analysis-title {
+.callout-label {
   font-size: 11px;
   font-weight: 700;
-  color: #d48806;
-  margin-bottom: 2px;
+  color: #b45309;
 }
 
-.analysis-text {
+.callout-text {
   margin: 0;
-  font-size: 11px;
-  color: #434343;
-  line-height: 1.4;
+  font-size: 12px;
+  color: #451a03;
+  line-height: 1.5;
 }
 </style>

@@ -250,6 +250,7 @@ const toggleFullScreen = () => {
               class="diagnostic-card"
               :class="{
                 'is-correct': item.isCorrect,
+                'is-error': !item.isCorrect,
                 'is-selected': selectedCellFeedback?.cellRef === item.cellRef,
                 'is-yellow-mode': !item.isCorrect && (isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef)
               }"
@@ -258,7 +259,7 @@ const toggleFullScreen = () => {
               <div class="card-top">
                 <span class="cell-badge">{{ item.cellRef }}</span>
                 <span class="cell-title">{{ item.title }}</span>
-                <span class="score-tag">{{ item.earnedScore }}/{{ item.scoreWeight }}分</span>
+                <span class="score-tag" :class="item.isCorrect ? 'is-correct' : 'is-error'">{{ item.earnedScore }}/{{ item.scoreWeight }}分</span>
               </div>
               <CellFeedbackPopover 
                 v-if="selectedCellFeedback?.cellRef === item.cellRef"
@@ -630,31 +631,40 @@ const toggleFullScreen = () => {
   border-radius: 6px;
   padding: 10px 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease-in-out;
 }
 
 .diagnostic-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .diagnostic-card.is-selected {
-  border-width: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.diagnostic-card.is-error {
+  border-color: #fee2e2;
+}
+
+.diagnostic-card.is-error.is-selected {
   border-color: #ef4444;
 }
 
 .diagnostic-card.is-yellow-mode {
-  background: #fffbeb;
-  border-color: #fde047;
+  border-color: #fef08a;
 }
 
 .diagnostic-card.is-yellow-mode.is-selected {
-  border-color: #ca8a04;
+  border-color: #d97706;
 }
 
 .diagnostic-card.is-correct {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  border-color: #dcfce7;
+}
+
+.diagnostic-card.is-correct.is-selected {
+  border-color: #16a34a;
 }
 
 .card-top {
@@ -662,11 +672,10 @@ const toggleFullScreen = () => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
 }
 
 .cell-badge {
-  background: #107c41;
+  background: #dc2626;
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
@@ -674,12 +683,12 @@ const toggleFullScreen = () => {
   border-radius: 4px;
 }
 
-.is-yellow-mode .cell-badge {
-  background: #ca8a04;
-}
-
 .is-correct .cell-badge {
   background: #16a34a;
+}
+
+.is-yellow-mode .cell-badge {
+  background: #d97706;
 }
 
 .cell-title {
@@ -693,6 +702,18 @@ const toggleFullScreen = () => {
   font-size: 11px;
   font-weight: 700;
   color: #64748b;
+}
+
+.score-tag.is-correct {
+  color: #16a34a;
+}
+
+.score-tag.is-error {
+  color: #dc2626;
+}
+
+.is-yellow-mode .score-tag.is-error {
+  color: #d97706;
 }
 
 .card-bottom {
