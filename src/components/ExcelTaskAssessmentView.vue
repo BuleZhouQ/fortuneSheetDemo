@@ -9,6 +9,7 @@ const isSidebarOpen = ref(false);
 
 const {
   initialSheetData,
+  getCleanInitialSheetData,
   isAssessed,
   isFilterYellowMode,
   totalScore,
@@ -26,7 +27,7 @@ const {
   sampleCorrectCelldata
 } = useExcelAssessment();
 
-const currentSheetData = ref<any[]>(JSON.parse(JSON.stringify(initialSheetData)));
+const currentSheetData = ref<any[]>(getCleanInitialSheetData());
 
 const onSheetOp = (payload: any) => {
   if (payload?.snapshot) {
@@ -115,9 +116,10 @@ const handleSelectErrorItem = (item: CellAssessmentItem) => {
 const handleReset = () => {
   resetAssessment();
   isSidebarOpen.value = false;
-  currentSheetData.value = JSON.parse(JSON.stringify(initialSheetData));
+  const cleanData = getCleanInitialSheetData();
+  currentSheetData.value = cleanData;
   nextTick(() => {
-    editor.value?.applyOp({ snapshot: currentSheetData.value });
+    editor.value?.applyOp({ snapshot: cleanData });
   });
 };
 

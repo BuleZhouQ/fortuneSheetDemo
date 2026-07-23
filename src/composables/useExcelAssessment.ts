@@ -357,6 +357,35 @@ export function useExcelAssessment() {
     isFilterYellowMode.value = !isFilterYellowMode.value;
   };
 
+  const getCleanInitialSheetData = () => {
+    const cloned = JSON.parse(JSON.stringify(initialSheetData));
+    const sheet = cloned[0];
+    if (sheet) {
+      delete sheet.data; // 擦除之前的二维矩阵缓存，防止残留旧单元格样式或背景高亮
+      const targetCoords = [
+        { r: 6, c: 2 },
+        { r: 7, c: 2 },
+        { r: 8, c: 2 },
+        { r: 9, c: 2 }
+      ];
+      sheet.celldata = sheet.celldata || [];
+      targetCoords.forEach(({ r, c }) => {
+        const idx = sheet.celldata.findIndex((item: any) => item.r === r && item.c === c);
+        const cleanCell = {
+          r,
+          c,
+          v: { v: "", m: "" }
+        };
+        if (idx >= 0) {
+          sheet.celldata[idx] = cleanCell;
+        } else {
+          sheet.celldata.push(cleanCell);
+        }
+      });
+    }
+    return cloned;
+  };
+
   const resetAssessment = () => {
     isAssessed.value = false;
     isFilterYellowMode.value = false;
@@ -372,6 +401,7 @@ export function useExcelAssessment() {
   return {
     assessmentRules,
     initialSheetData,
+    getCleanInitialSheetData,
     isAssessed,
     isFilterYellowMode,
     totalScore,
@@ -391,3 +421,4 @@ export function useExcelAssessment() {
     sampleCorrectCelldata
   };
 }
+
