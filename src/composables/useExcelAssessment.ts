@@ -296,39 +296,50 @@ export function useExcelAssessment() {
     sheet.celldata = sheet.celldata || [];
 
     assessmentResults.value.forEach((res) => {
-      if (!res.isCorrect) {
-        let bg = "#FFD2D2";
-        let fc = "#CF1322";
+      let bg: string | undefined = undefined;
+      let fc: string | undefined = undefined;
 
-        if (isFilterYellowMode.value || (selectedCellFeedback.value && selectedCellFeedback.value.cellRef === res.cellRef)) {
+      const isSelected = selectedCellFeedback.value && selectedCellFeedback.value.cellRef === res.cellRef;
+
+      if (!res.isCorrect) {
+        if (isFilterYellowMode.value || isSelected) {
           bg = "#FFF1B8";
           fc = "#D48806";
           res.status = 'YELLOW_ANALYZED';
         } else {
+          bg = "#FFD2D2";
+          fc = "#CF1322";
           res.status = 'RED_ERROR';
         }
-
-        let cellItem = sheet.celldata.find((c: any) => c.r === res.row && c.c === res.col);
-        if (!cellItem) {
-          cellItem = { r: res.row, c: res.col, v: { v: res.studentValue, f: res.studentFormula } };
-          sheet.celldata.push(cellItem);
+      } else {
+        // 点击/选中正确答案时，左侧对应的单元格渲染为柔和绿色 (#D9F7BE) 字体绿色 (#237804)
+        if (isSelected) {
+          bg = "#D9F7BE";
+          fc = "#237804";
         }
-        cellItem.v = cellItem.v || {};
+      }
+
+      let cellItem = sheet.celldata.find((c: any) => c.r === res.row && c.c === res.col);
+      if (!cellItem) {
+        cellItem = { r: res.row, c: res.col, v: { v: res.studentValue, f: res.studentFormula } };
+        sheet.celldata.push(cellItem);
+      }
+      cellItem.v = cellItem.v || {};
+
+      if (bg) {
         cellItem.v.bg = bg;
         cellItem.v.fc = fc;
+      } else {
+        delete cellItem.v.bg;
+        delete cellItem.v.fc;
+      }
 
-        if (Array.isArray(sheet.data) && sheet.data[res.row]) {
-          sheet.data[res.row][res.col] = sheet.data[res.row][res.col] || {};
+      if (Array.isArray(sheet.data) && sheet.data[res.row]) {
+        sheet.data[res.row][res.col] = sheet.data[res.row][res.col] || {};
+        if (bg) {
           sheet.data[res.row][res.col].bg = bg;
           sheet.data[res.row][res.col].fc = fc;
-        }
-      } else {
-        let cellItem = sheet.celldata.find((c: any) => c.r === res.row && c.c === res.col);
-        if (cellItem && cellItem.v) {
-          delete cellItem.v.bg;
-          delete cellItem.v.fc;
-        }
-        if (Array.isArray(sheet.data) && sheet.data[res.row] && sheet.data[res.row][res.col]) {
+        } else {
           delete sheet.data[res.row][res.col].bg;
           delete sheet.data[res.row][res.col].fc;
         }

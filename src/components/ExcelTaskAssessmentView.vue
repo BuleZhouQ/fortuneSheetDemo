@@ -99,7 +99,11 @@ const handleYellowModeToggle = () => {
 };
 
 const handleSelectErrorItem = (item: CellAssessmentItem) => {
-  selectErrorCellForAnalysis(item);
+  if (selectedCellFeedback.value?.cellRef === item.cellRef) {
+    selectedCellFeedback.value = null;
+  } else {
+    selectErrorCellForAnalysis(item);
+  }
   const updatedSheet = generateGradedSheetData(currentSheetData.value);
   currentSheetData.value = updatedSheet;
 
@@ -237,7 +241,6 @@ const toggleFullScreen = () => {
         <div class="drawer-section">
           <div class="section-header">
             <span>单元格甄别与定位分析</span>
-            <span class="section-tip">点击卡片定位高亮</span>
           </div>
 
           <div class="diagnostic-list">
@@ -248,7 +251,7 @@ const toggleFullScreen = () => {
               :class="{
                 'is-correct': item.isCorrect,
                 'is-selected': selectedCellFeedback?.cellRef === item.cellRef,
-                'is-yellow-mode': isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef
+                'is-yellow-mode': !item.isCorrect && (isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef)
               }"
               @click="handleSelectErrorItem(item)"
             >
@@ -257,23 +260,14 @@ const toggleFullScreen = () => {
                 <span class="cell-title">{{ item.title }}</span>
                 <span class="score-tag">{{ item.earnedScore }}/{{ item.scoreWeight }}分</span>
               </div>
-              <div class="card-bottom">
-                <span v-if="item.isCorrect" class="tag-correct">✓ 答案与公式正确</span>
-                <span v-else class="tag-error">
-                  {{ isFilterYellowMode || selectedCellFeedback?.cellRef === item.cellRef ? '🟨 已自动渲染为黄色高亮' : '🟥 初始标红告警' }}
-                </span>
-              </div>
+              <CellFeedbackPopover 
+                v-if="selectedCellFeedback?.cellRef === item.cellRef"
+                :feedback-data="item" 
+                :is-yellow-mode="isFilterYellowMode"
+                @close="selectedCellFeedback = null"
+              />
             </div>
           </div>
-        </div>
-
-        <!-- 选中错题的定点反馈 Popover -->
-        <div v-if="selectedCellFeedback" class="drawer-popover-wrapper">
-          <CellFeedbackPopover 
-            :feedback-data="selectedCellFeedback" 
-            :is-yellow-mode="isFilterYellowMode"
-            @close="selectedCellFeedback = null"
-          />
         </div>
         </template>
       </aside>

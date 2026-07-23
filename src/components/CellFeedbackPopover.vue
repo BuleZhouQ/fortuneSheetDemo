@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import type { CellAssessmentItem } from "../composables/useExcelAssessment";
 
 const props = defineProps<{
   feedbackData: CellAssessmentItem | null;
-  isYellowMode: boolean;
+  isYellowMode?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -26,38 +25,37 @@ const getErrorTypeName = (type?: CellAssessmentItem['errorType']) => {
 </script>
 
 <template>
-  <div v-if="feedbackData" class="feedback-card" :class="{ 'is-yellow': isYellowMode || feedbackData.status === 'YELLOW_ANALYZED' }">
-    <div class="feedback-header">
-      <div class="title-group">
-        <span class="cell-tag">{{ feedbackData.cellRef }}</span>
-        <span class="title-text">{{ feedbackData.title }}</span>
-      </div>
-      <div class="score-status">
-        <span class="score-badge" :class="feedbackData.isCorrect ? 'correct' : 'error'">
-          {{ feedbackData.earnedScore }} / {{ feedbackData.scoreWeight }} 分
-        </span>
-        <button class="close-btn" @click="emit('close')">✕</button>
-      </div>
-    </div>
-
+  <div 
+    v-if="feedbackData" 
+    class="feedback-detail-panel" 
+    :class="{ 
+      'is-correct': feedbackData.isCorrect,
+      'is-yellow': !feedbackData.isCorrect && (isYellowMode || feedbackData.status === 'YELLOW_ANALYZED')
+    }"
+    @click.stop
+  >
     <div class="feedback-body">
-      <!-- 错误类型警告带 -->
-      <div v-if="!feedbackData.isCorrect" class="error-banner">
-        <span class="warning-icon">⚠️</span>
-        <span class="error-type-text">{{ getErrorTypeName(feedbackData.errorType) }}</span>
+      <!-- 仅错题展示错误类型警告带 -->
+      <div v-if="!feedbackData.isCorrect" class="status-banner error-banner">
+        <span class="status-icon">⚠️</span>
+        <span class="status-text">{{ getErrorTypeName(feedbackData.errorType) }}</span>
       </div>
 
       <!-- 对比分析表格 -->
       <div class="comparison-grid">
-        <div class="grid-column student">
+        <div class="grid-column student" :class="{ 'is-correct': feedbackData.isCorrect }">
           <div class="column-header">学生提交</div>
           <div class="field-item">
             <span class="field-label">计算数值:</span>
-            <span class="field-value highlight">{{ feedbackData.studentValue !== '' ? feedbackData.studentValue : '(空)' }}</span>
+            <span class="field-value" :class="feedbackData.isCorrect ? 'correct-highlight' : 'error-highlight'">
+              {{ feedbackData.studentValue !== '' ? feedbackData.studentValue : '(空)' }}
+            </span>
           </div>
           <div class="field-item">
             <span class="field-label">输入公式:</span>
-            <code class="formula-code student">{{ feedbackData.studentFormula || '无公式 (硬编码)' }}</code>
+            <code class="formula-code" :class="feedbackData.isCorrect ? 'correct-code' : 'error-code'">
+              {{ feedbackData.studentFormula || '无公式 (硬编码)' }}
+            </code>
           </div>
         </div>
 
@@ -69,13 +67,13 @@ const getErrorTypeName = (type?: CellAssessmentItem['errorType']) => {
           </div>
           <div class="field-item">
             <span class="field-label">标准公式:</span>
-            <code class="formula-code standard">{{ feedbackData.standardFormula || '无公式要求' }}</code>
+            <code class="formula-code standard-code">{{ feedbackData.standardFormula || '无公式要求' }}</code>
           </div>
         </div>
       </div>
 
-      <!-- 定点错误分析提示 -->
-      <div v-if="!feedbackData.isCorrect" class="analysis-box">
+      <!-- 仅错题展示定点错误分析提示 -->
+      <div v-if="!feedbackData.isCorrect" class="analysis-box error-box">
         <div class="analysis-title">🔍 定点诊断与错误原因提示：</div>
         <p class="analysis-text">{{ feedbackData.errorAnalysisPrompt }}</p>
       </div>
@@ -84,170 +82,110 @@ const getErrorTypeName = (type?: CellAssessmentItem['errorType']) => {
 </template>
 
 <style scoped>
-.feedback-card {
+.feedback-detail-panel {
   background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
   border: 1px solid #ffccc7;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 8px;
+  transition: all 0.2s ease;
 }
 
-.feedback-card.is-yellow {
+.feedback-detail-panel.is-correct {
+  border-color: #b7eb8f;
+  background: #fafcf7;
+}
+
+.feedback-detail-panel.is-yellow {
   border-color: #ffe58f;
-  box-shadow: 0 6px 24px rgba(250, 173, 20, 0.2);
+  background: #fffdf5;
 }
 
-.feedback-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px;
-  background: #fff2f0;
-  border-bottom: 1px solid #ffccc7;
+.feedback-body {
+  padding: 8px 10px;
 }
 
-.is-yellow .feedback-header {
-  background: #fffbe6;
-  border-bottom-color: #ffe58f;
-}
-
-.title-group {
+.status-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.cell-tag {
-  background: #ff4d4f;
-  color: #fff;
-  font-weight: 700;
-  padding: 2px 8px;
+  gap: 6px;
+  padding: 4px 8px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 11px;
+  margin-bottom: 6px;
 }
 
-.is-yellow .cell-tag {
-  background: #faad14;
-  color: #fff;
-}
-
-.title-text {
-  font-weight: 600;
-  font-size: 14px;
-  color: #1f2937;
-}
-
-.score-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.score-badge {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.score-badge.error {
-  background: #fff1f0;
+.status-banner.error-banner {
+  background: #fff2f0;
   color: #cf1322;
   border: 1px solid #ffa39e;
 }
 
-.score-badge.correct {
-  background: #f6ffed;
-  color: #389e0d;
-  border: 1px solid #b7eb8f;
-}
-
-.close-btn {
-  background: transparent;
-  border: none;
-  font-size: 14px;
-  color: #8c8c8c;
-  cursor: pointer;
-  padding: 0 4px;
-}
-
-.close-btn:hover {
-  color: #1f2937;
-}
-
-.feedback-body {
-  padding: 12px 14px;
-}
-
-.error-banner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff2f0;
-  color: #cf1322;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin-bottom: 10px;
-}
-
-.is-yellow .error-banner {
+.is-yellow .status-banner.error-banner {
   background: #fffbe6;
   color: #d48806;
+  border-color: #ffe58f;
 }
 
-.error-type-text {
+.status-text {
   font-weight: 600;
 }
 
 .comparison-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
 }
 
 .grid-column {
   background: #fafafa;
-  border-radius: 6px;
-  padding: 8px;
+  border-radius: 4px;
+  padding: 6px;
   border: 1px solid #f0f0f0;
 }
 
+.grid-column.is-correct {
+  background: #f6ffed;
+  border-color: #d9f7be;
+}
+
 .column-header {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #595959;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   border-bottom: 1px dashed #d9d9d9;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 
 .field-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 6px;
+  gap: 1px;
+  margin-bottom: 4px;
 }
 
 .field-label {
-  font-size: 11px;
+  font-size: 10px;
   color: #8c8c8c;
 }
 
 .field-value {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #262626;
 }
 
-.field-value.highlight {
+.error-highlight {
   color: #cf1322;
 }
 
-.field-value.standard-highlight {
-  color: #389e0d;
+.correct-highlight {
+  color: #278211;
+}
+
+.standard-highlight {
+  color: #278211;
 }
 
 .formula-code {
@@ -258,27 +196,37 @@ const getErrorTypeName = (type?: CellAssessmentItem['errorType']) => {
   word-break: break-all;
 }
 
-.formula-code.student {
+.error-code {
   background: #fff1f0;
   color: #a8071a;
   border: 1px solid #ffa39e;
 }
 
-.formula-code.standard {
+.correct-code {
   background: #f6ffed;
-  color: #237804;
+  color: #278211;
+  border: 1px solid #b7eb8f;
+}
+
+.standard-code {
+  background: #f6ffed;
+  color: #278211;
   border: 1px solid #b7eb8f;
 }
 
 .analysis-box {
-  background: #f5f5f5;
-  border-left: 3px solid #faad14;
-  padding: 8px 10px;
-  border-radius: 0 4px 4px 0;
+  padding: 6px;
+  border-radius: 4px;
+  margin-top: 6px;
 }
 
-.analysis-title {
-  font-size: 12px;
+.analysis-box.error-box {
+  background: #fffbe6;
+  border-left: 3px solid #faad14;
+}
+
+.error-box .analysis-title {
+  font-size: 11px;
   font-weight: 700;
   color: #d48806;
   margin-bottom: 2px;
@@ -286,7 +234,7 @@ const getErrorTypeName = (type?: CellAssessmentItem['errorType']) => {
 
 .analysis-text {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #434343;
   line-height: 1.4;
 }
