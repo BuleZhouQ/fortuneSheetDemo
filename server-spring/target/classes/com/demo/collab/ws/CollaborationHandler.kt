@@ -22,6 +22,7 @@ class CollaborationHandler(
 ) : TextWebSocketHandler() {
 
     private val rooms = ConcurrentHashMap<String, MutableSet<WebSocketSession>>()
+    private val validRoom = Regex("^[A-Za-z0-9_-]{1,64}$")
 
     private fun query(uri: URI?, key: String): String? {
         return uri?.query?.split("&")
@@ -48,22 +49,45 @@ class CollaborationHandler(
         when (msg["type"]?.asText()) {
             "join" -> {
                 val room = msg["room"].asText()
+                if (!validRoom.matches(room)) {
+                    send(session, mapOf("type" to "error", "message" to "协同房间名称无效"))
+                    return
+                }
                 session.attributes["room"] = room
                 rooms.computeIfAbsent(room) { ConcurrentHashMap.newKeySet() }.add(session)
                 service.ensureMember(room, user)
                 redis.opsForSet().add("collab:room:$room:users", user)
-                val doc = service.load(room, mapper)
+                service.load(room, mapper)
                 send(
                     session,
                     mapOf(
-                        "type" to "snapshot",
+                        "type" to "sync",
                         "room" to room,
-                        "data" to mapper.readTree(doc.snapshot),
-                        "revision" to doc.revision,
+                        "updates" to service.loadYjsUpdates(room),
                         "users" to users(room)
                     )
                 )
                 broadcast(room, mapOf("type" to "presence", "users" to users(room)))
+            }
+
+            "y-update" -> {
+                val room = session.attributes["room"] as? String ?: return
+                val update = msg["update"]?.asText() ?: return
+                if (!YjsUpdateValidator.isValid(update)) {
+                    send(session, mapOf("type" to "error", "message" to "Yjs 更新数据无效或过大"))
+                    return
+                }
+                val revision = service.appendYjsUpdate(room, user, update)
+                broadcast(
+                    room,
+                    mapOf(
+                        "type" to "y-update",
+                        "user" to user,
+                        "revision" to revision,
+                        "update" to update
+                    ),
+                    session
+                )
             }
 
             "op" -> {
@@ -90,8 +114,10 @@ class CollaborationHandler(
     }
 
     private fun send(session: WebSocketSession, value: Any) {
-        if (session.isOpen) {
-            session.sendMessage(TextMessage(mapper.writeValueAsString(value)))
+        synchronized(session) {
+            if (session.isOpen) {
+                session.sendMessage(TextMessage(mapper.writeValueAsString(value)))
+            }
         }
     }
 

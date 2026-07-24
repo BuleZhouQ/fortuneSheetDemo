@@ -44,5 +44,6 @@ data class OperationLog(
     var revision: Long,
     var username: String,
     var operations: String,
+    var kind: String = "fortune-op",
     var createdAt: Instant = Instant.now()
 )

@@ -4,6 +4,7 @@ import { Workbook, type WorkbookInstance } from "@fortune-sheet/react";
 import "@fortune-sheet/react/dist/index.css";
 
 const data = [{
+  id: "assessment-sheet",
   name: "在线 Excel 评测",
   status: 1,
   row: 84,
@@ -62,12 +63,21 @@ const data = [{
 function SheetFrame() {
   const workbook = useRef<WorkbookInstance>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const applyingRemote = useRef(false);
   const [sheets, setSheets] = useState(data);
   const [sheetKey, setSheetKey] = useState(0);
 
   useEffect(() => {
+    const postState = () => {
+      parent.postMessage(
+        { type: "fortune-state", snapshot: workbook.current?.getAllSheets() },
+        location.origin
+      );
+    };
+
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.data?.type !== "fortune-remote-op") return;
+      applyingRemote.current = true;
       if (event.data.snapshot) {
         const snapshot = JSON.parse(JSON.stringify(event.data.snapshot));
         if (snapshot[0]) {
@@ -78,9 +88,17 @@ function SheetFrame() {
         setSheetKey((prev) => prev + 1);
         setTimeout(() => {
           window.dispatchEvent(new Event("resize"));
+          postState();
+          applyingRemote.current = false;
         }, 50);
       } else if (event.data.op) {
         workbook.current?.applyOp(event.data.op);
+        setTimeout(() => {
+          postState();
+          applyingRemote.current = false;
+        }, 0);
+      } else {
+        applyingRemote.current = false;
       }
     };
     window.addEventListener("message", receive);
@@ -134,6 +152,7 @@ function SheetFrame() {
         showstatisticBar={false}
         allowEdit={true}
         onOp={(op) => {
+          if (applyingRemote.current) return;
           window.setTimeout(() => {
             parent.postMessage(
               { type: "fortune-op", op, snapshot: workbook.current?.getAllSheets() },

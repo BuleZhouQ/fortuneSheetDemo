@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, nextTick } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import FortuneSheetIsland from "./FortuneSheetIsland.vue";
 import CellFeedbackPopover from "./CellFeedbackPopover.vue";
+import { useCollaboration } from "../composables/useCollaboration";
 import { useExcelAssessment, type CellAssessmentItem } from "../composables/useExcelAssessment";
+import type { FortuneOp } from "../types/fortune-sheet";
 
 const editor = ref<InstanceType<typeof FortuneSheetIsland>>();
 const isSidebarOpen = ref(false);
@@ -28,12 +30,57 @@ const {
 } = useExcelAssessment();
 
 const currentSheetData = ref<any[]>(getCleanInitialSheetData());
+const query = new URLSearchParams(location.search);
+const collaborationRoom = query.get("room")?.trim() || "fortune-demo";
+const storedUser = sessionStorage.getItem("fortune-collaboration-user");
+const collaborationUser =
+  query.get("user")?.trim() ||
+  storedUser ||
+  `用户-${Math.random().toString(36).slice(2, 6)}`;
+sessionStorage.setItem("fortune-collaboration-user", collaborationUser);
+
+const {
+  connected,
+  users,
+  error: collaborationError,
+  connect,
+  publishOperations,
+} = useCollaboration({
+  applyOperations: (operations) => {
+    editor.value?.applyOp({ op: operations });
+  },
+  applySnapshot: (snapshot) => {
+    currentSheetData.value = snapshot;
+    editor.value?.applyOp({ snapshot });
+  },
+});
+
+const collaborationStatus = computed(() => {
+  if (collaborationError.value) return collaborationError.value;
+  if (!connected.value) return "正在连接协同";
+  return `${users.value.length} 人在线`;
+});
 
 const onSheetOp = (payload: any) => {
   if (payload?.snapshot) {
     currentSheetData.value = payload.snapshot;
   }
+  if (Array.isArray(payload?.op)) {
+    publishOperations(payload.op as FortuneOp[]);
+  }
 };
+
+const onSheetState = (snapshot: unknown[]) => {
+  currentSheetData.value = snapshot;
+};
+
+onMounted(() => {
+  void connect({
+    room: collaborationRoom,
+    user: collaborationUser,
+    initialSnapshot: currentSheetData.value,
+  });
+});
 
 // 填入自定义答题数据辅助逻辑
 const injectCelldata = (items: any[]) => {
@@ -152,6 +199,13 @@ const toggleFullScreen = () => {
           <div class="doc-status-badge">
             <span class="save-status-dot"></span>已自动保存
           </div>
+          <div
+            class="collab-status-badge"
+            :title="`${collaborationUser} · ${collaborationRoom}`"
+          >
+            <span class="collab-status-dot" :class="{ connected }"></span>
+            {{ collaborationStatus }}
+          </div>
         </div>
       </div>
 
@@ -200,7 +254,7 @@ const toggleFullScreen = () => {
     <div class="wps-workspace-body">
       <!-- 表格编辑区 -->
       <main class="wps-sheet-canvas">
-        <FortuneSheetIsland ref="editor" @op="onSheetOp" />
+        <FortuneSheetIsland ref="editor" @op="onSheetOp" @state="onSheetState" />
       </main>
 
       <!-- WPS 风格右侧诊断面板 (Drawer) -->
@@ -338,6 +392,25 @@ const toggleFullScreen = () => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.collab-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+}
+
+.collab-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fbbf24;
+}
+
+.collab-status-dot.connected {
+  background: #86efac;
 }
 
 .save-status-dot {

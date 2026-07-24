@@ -79,6 +79,7 @@ export function useExcelAssessment() {
 
   const initialSheetData = [
     {
+      id: "assessment-sheet",
       name: "财务季度考核表",
       status: 1,
       order: 0,
@@ -421,4 +422,3 @@ export function useExcelAssessment() {
     sampleCorrectCelldata
   };
 }
-
