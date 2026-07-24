@@ -66,7 +66,7 @@ const onSheetOp = (payload: any) => {
     currentSheetData.value = payload.snapshot;
   }
   if (Array.isArray(payload?.op)) {
-    publishOperations(payload.op as FortuneOp[]);
+    publishOperations(payload.op as FortuneOp[], payload.snapshot ?? currentSheetData.value);
   }
 };
 

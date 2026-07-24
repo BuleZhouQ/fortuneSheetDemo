@@ -3,11 +3,7 @@
 spring:
   data:
     mongodb:
-      uri: mongodb://localhost:27018/fortune_sheet_collab
-    redis:
-      host: localhost
-      port: 6379
-      database: 8
+      uri: mongodb://localhost:27017/fortune_sheet_collab
   jackson:
     default-property-inclusion: non_null
 collab:
