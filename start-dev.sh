@@ -18,7 +18,7 @@ sleep 1
 
 echo "[3/4] Starting Spring Boot, Gateway and Vite..."
 cd "$ROOT/server-spring"
-nohup env SPRING_DATA_MONGODB_URI=mongodb://127.0.0.1:27017/fortune_sheet_collab SERVER_PORT=8083 mvn spring-boot:run > "$RUNTIME/spring.log" 2>&1 &
+nohup env JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH SPRING_DATA_MONGODB_URI=mongodb://127.0.0.1:27017/fortune_sheet_collab SERVER_PORT=8083 mvn spring-boot:run > "$RUNTIME/spring.log" 2>&1 &
 echo $! > "$RUNTIME/spring.pid"
 
 cd "$ROOT"
