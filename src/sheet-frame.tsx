@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Workbook, type WorkbookInstance } from "@fortune-sheet/react";
+import { createVirtualSheetData } from "./large-sheet-data";
 import "@fortune-sheet/react/dist/index.css";
 
-const data = [{
+const legacyData = [{
   id: "assessment-sheet",
   name: "在线 Excel 评测",
   status: 1,
@@ -60,12 +61,86 @@ const data = [{
   ],
 }];
 
+const data = [createVirtualSheetData()];
+const performanceMode = true;
+document.documentElement.dataset.performanceRows = String(data[0].row);
+document.documentElement.dataset.performanceColumns = String(data[0].column);
+document.documentElement.dataset.performanceCells = String(data[0].celldata.length);
+void legacyData;
+
 function SheetFrame() {
   const workbook = useRef<WorkbookInstance>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const applyingRemote = useRef(false);
   const [sheets, setSheets] = useState(data);
   const [sheetKey, setSheetKey] = useState(0);
+
+  useEffect(() => {
+    const rootEl = containerRef.current;
+    if (!rootEl) return;
+
+    const loadedBlocks = new Set<number>();
+    const loadingBlocks = new Set<number>();
+    let scrollElement: HTMLElement | null = null;
+    let timer = 0;
+
+    const loadBlock = async (blockStart: number) => {
+      const offset = Math.max(0, Math.min(blockStart, 99_800));
+      if (loadedBlocks.has(offset) || loadingBlocks.has(offset)) return;
+      loadingBlocks.add(offset);
+      try {
+        const response = await fetch(`/api/performance/rows?offset=${offset}&limit=200`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const rows = payload.rows as Array<{ rowNumber: number; values: Array<string | number> }>;
+        if (!rows.length) return;
+        const matrix = rows.map((row) =>
+          row.values.map((value) =>
+            typeof value === "number" ? { v: value, m: String(value) } : { v: value },
+          ),
+        );
+        workbook.current?.setCellValuesByRange(
+          matrix,
+          { row: [rows[0].rowNumber, rows[rows.length - 1].rowNumber], column: [0, 19] },
+          { id: "performance-sheet" },
+        );
+        loadedBlocks.add(offset);
+        document.documentElement.dataset.performanceCells = String(loadedBlocks.size * 4_000);
+      } catch (error) {
+        console.error("[virtual-sheet] 加载可视区域失败", error);
+      } finally {
+        loadingBlocks.delete(offset);
+      }
+    };
+
+    const loadVisibleRows = () => {
+      const startRow = Math.floor((scrollElement?.scrollTop ?? 0) / 20);
+      const blockStart = Math.floor(startRow / 200) * 200;
+      void loadBlock(blockStart);
+      void loadBlock(blockStart + 200);
+    };
+
+    const onScroll = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(loadVisibleRows, 60);
+    };
+
+    const setup = () => {
+      scrollElement = rootEl.querySelector<HTMLElement>(".luckysheet-scrollbar-y");
+      if (!scrollElement) {
+        timer = window.setTimeout(setup, 100);
+        return;
+      }
+      scrollElement.addEventListener("scroll", onScroll, { passive: true });
+      loadVisibleRows();
+    };
+    setup();
+
+    return () => {
+      window.clearTimeout(timer);
+      scrollElement?.removeEventListener("scroll", onScroll);
+    };
+  }, []);
 
   useEffect(() => {
     const postState = () => {
@@ -81,8 +156,8 @@ function SheetFrame() {
       if (event.data.snapshot) {
         const snapshot = JSON.parse(JSON.stringify(event.data.snapshot));
         if (snapshot[0]) {
-          snapshot[0].row = Math.max(snapshot[0].row || 0, 84);
-          snapshot[0].column = Math.max(snapshot[0].column || 0, 26);
+          snapshot[0].row = Math.max(snapshot[0].row || 0, 100_000);
+          snapshot[0].column = Math.max(snapshot[0].column || 0, 20);
         }
         setSheets(snapshot);
         setSheetKey((prev) => prev + 1);
@@ -155,7 +230,11 @@ function SheetFrame() {
           if (applyingRemote.current) return;
           window.setTimeout(() => {
             parent.postMessage(
-              { type: "fortune-op", op, snapshot: workbook.current?.getAllSheets() },
+              {
+                type: "fortune-op",
+                op,
+                ...(performanceMode ? {} : { snapshot: workbook.current?.getAllSheets() }),
+              },
               location.origin
             );
           }, 0);

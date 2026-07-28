@@ -31,6 +31,7 @@ const {
 
 const currentSheetData = ref<any[]>(getCleanInitialSheetData());
 const query = new URLSearchParams(location.search);
+const performanceMode = true;
 const collaborationRoom = query.get("room")?.trim() || "fortune-demo";
 const storedUser = sessionStorage.getItem("fortune-collaboration-user");
 const collaborationUser =
@@ -56,6 +57,7 @@ const {
 });
 
 const collaborationStatus = computed(() => {
+  if (performanceMode) return "本地 200 万单元格性能测试";
   if (collaborationError.value) return collaborationError.value;
   if (!connected.value) return "正在连接协同";
   return `${users.value.length} 人在线`;
@@ -75,6 +77,7 @@ const onSheetState = (snapshot: unknown[]) => {
 };
 
 onMounted(() => {
+  if (performanceMode) return;
   void connect({
     room: collaborationRoom,
     user: collaborationUser,

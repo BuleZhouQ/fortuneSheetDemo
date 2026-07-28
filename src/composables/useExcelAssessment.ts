@@ -29,6 +29,7 @@ export interface CellAssessmentItem {
 }
 
 const BACKEND_API_URLS = [
+  "/api/assessment",
   "http://localhost:8081/api/assessment",
   "http://localhost:3001/api/assessment"
 ];
