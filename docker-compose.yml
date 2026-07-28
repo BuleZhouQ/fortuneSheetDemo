@@ -2,11 +2,17 @@ services:
   mongo:
     image: mongo:8
     restart: unless-stopped
+    ports:
+      - "27017:27017"
     volumes:
       - mongo-data:/data/db
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   spring:
     build:
       context: ./server-spring
@@ -16,6 +22,7 @@ services:
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/fortune_sheet_collab
     depends_on:
       - mongo
+
   gateway:
     build:
       context: .
@@ -28,6 +35,7 @@ services:
     depends_on:
       - mongo
       - redis
+
   frontend:
     build:
       context: .
@@ -38,5 +46,6 @@ services:
     depends_on:
       - spring
       - gateway
+
 volumes:
   mongo-data:
